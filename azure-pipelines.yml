@@ -1,5 +1,5 @@
 variables:
-  MODULE_NAME: redis
+  MODULE_NAME: redis.core
   DEPENDENCIES: $(System.DefaultWorkingDirectory)/dependencies
   GARRYSMOD_COMMON: $(System.DefaultWorkingDirectory)/dependencies/garrysmod_common
   GARRYSMOD_COMMON_BRANCH: master
