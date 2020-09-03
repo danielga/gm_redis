@@ -6,8 +6,8 @@
 namespace redis
 {
 
-static const char version[] = "redis 1.0.3";
-static const uint32_t version_number = 10003;
+static const char version[] = "redis 1.0.6";
+static const uint32_t version_number = 10006;
 static const char table_name[] = "redis";
 
 #if defined _WIN32
