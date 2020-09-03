@@ -327,7 +327,7 @@ LUA_FUNCTION_STATIC( Poll )
 	return 1;
 }
 
-inline const char *ToString( GarrysMod::Lua::ILuaBase *LUA, int32_t idx, size_t *len = nullptr )
+inline const char *ToString( GarrysMod::Lua::ILuaBase *LUA, int32_t idx )
 {
 	if( LUA->CallMeta( idx, "__tostring" ) == 0 )
 		switch( LUA->GetType( idx ) )
@@ -353,7 +353,7 @@ inline const char *ToString( GarrysMod::Lua::ILuaBase *LUA, int32_t idx, size_t 
 			break;
 		}
 
-	return LUA->GetString( -1, len );
+	return LUA->GetString( -1 );
 }
 
 LUA_FUNCTION_STATIC( Send )
