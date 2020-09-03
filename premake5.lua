@@ -10,13 +10,13 @@ local gmcommon = assert(_OPTIONS.gmcommon or os.getenv("GARRYSMOD_COMMON"),
 	"you didn't provide a path to your garrysmod_common (https://github.com/danielga/garrysmod_common) directory")
 include(gmcommon)
 
-local REDIS_FOLDER = "../cpp_redis"
-local TACOPIE_FOLDER = "../cpp_redis/tacopie"
+local REDIS_FOLDER = "cpp_redis"
+local TACOPIE_FOLDER = "cpp_redis/tacopie"
 
 CreateWorkspace({name = "redis.core"})
 	CreateProject({serverside = true})
 		links({"cpp_redis", "tacopie"})
-		includedirs({REDIS_FOLDER .. "/includes", TACOPIE_FOLDER .. "/includes"})
+		sysincludedirs({REDIS_FOLDER .. "/includes", TACOPIE_FOLDER .. "/includes"})
 		IncludeLuaShared()
 
 		filter("system:windows")
@@ -24,7 +24,7 @@ CreateWorkspace({name = "redis.core"})
 
 	CreateProject({serverside = false})
 		links({"cpp_redis", "tacopie"})
-		includedirs({REDIS_FOLDER .. "/includes", TACOPIE_FOLDER .. "/includes"})
+		sysincludedirs({REDIS_FOLDER .. "/includes", TACOPIE_FOLDER .. "/includes"})
 		IncludeLuaShared()
 
 		filter("system:windows")
