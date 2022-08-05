@@ -8,6 +8,8 @@
 #include "redis_client.hpp"
 #include "main.hpp"
 
+using namespace GarrysMod::Lua;
+
 namespace redis_client
 {
 
@@ -50,6 +52,8 @@ private:
 
 static const char metaname[] = "redis_client";
 static int32_t metatype = GarrysMod::Lua::Type::NONE;
+static const char errormetaname[] = "redis_clienterror";
+static int32_t errormetatype = GarrysMod::Lua::Type::NONE;
 static const char invalid_error[] = "invalid redis_client";
 static const char table_name[] = "redis_clients";
 
@@ -84,6 +88,12 @@ LUA_FUNCTION( Create )
 	return 1;
 }
 
+LUA_FUNCTION( IsError )
+{
+	LUA->PushBool( LUA->GetMetaTable(-1) && LUA->PushMetaTable(errormetatype) && LUA->RawEqual(-1, -2) );
+	return 1;
+}
+
 inline void CheckType( GarrysMod::Lua::ILuaBase *LUA, int32_t index )
 {
 	if( !LUA->IsType( index, metatype ) )
@@ -111,6 +121,12 @@ static cpp_redis::client *Get( GarrysMod::Lua::ILuaBase *LUA, int32_t index, Con
 LUA_FUNCTION_STATIC( tostring )
 {
 	LUA->PushFormattedString( redis::tostring_format, metaname, Get( LUA, 1 ) );
+	return 1;
+}
+
+LUA_FUNCTION_STATIC( errortostring )
+{
+	LUA->GetField(1, "error");
 	return 1;
 }
 
@@ -172,7 +188,7 @@ LUA_FUNCTION_STATIC( IsValid )
 LUA_FUNCTION_STATIC( IsConnected )
 {
 	cpp_redis::client *client = Get( LUA, 1 );
-	LUA->PushBool( client->is_connected( ) );
+	LUA->PushBool( client != nullptr && client->is_connected( ) );
 	return 1;
 }
 
@@ -211,37 +227,46 @@ LUA_FUNCTION_STATIC( Disconnect )
 	return 0;
 }
 
+void BuildReply(GarrysMod::Lua::ILuaBase *LUA, const cpp_redis::reply &reply);
+
 inline void BuildTable( GarrysMod::Lua::ILuaBase *LUA, const std::vector<cpp_redis::reply> &replies )
 {
 	LUA->CreateTable( );
 
 	for( size_t k = 0; k < replies.size( ); ++k )
 	{
-		LUA->PushNumber( static_cast<double>( k ) );
-		
-		const cpp_redis::reply &reply = replies[k];
-		switch( reply.get_type( ) )
-		{
-		case cpp_redis::reply::type::error:
-		case cpp_redis::reply::type::bulk_string:
-		case cpp_redis::reply::type::simple_string:
-			LUA->PushString( reply.as_string( ).c_str( ) );
-			break;
-
-		case cpp_redis::reply::type::integer:
-			LUA->PushNumber( static_cast<double>( reply.as_integer( ) ) );
-			break;
-
-		case cpp_redis::reply::type::array:
-			BuildTable( LUA, reply.as_array( ) );
-			break;
-
-		case cpp_redis::reply::type::null:
-			LUA->PushNil( );
-			break;
-		}
-
+		LUA->PushNumber( static_cast<double>( k + 1 ) );
+		BuildReply(LUA, replies[k]);
 		LUA->SetTable( -3 );
+	}
+}
+
+inline void BuildReply(GarrysMod::Lua::ILuaBase *LUA, const cpp_redis::reply &reply) {
+	switch( reply.get_type( ) )
+	{
+	case cpp_redis::reply::type::error:
+		LUA->CreateTable();
+		LUA->PushString( reply.as_string( ).c_str( ) );
+		LUA->SetField(-2, "error");
+		LUA->PushMetaTable( errormetatype );
+		LUA->SetMetaTable( -2 );
+		break;
+	case cpp_redis::reply::type::bulk_string:
+	case cpp_redis::reply::type::simple_string:
+		LUA->PushString( reply.as_string( ).c_str( ) );
+		break;
+
+	case cpp_redis::reply::type::integer:
+		LUA->PushNumber( static_cast<double>( reply.as_integer( ) ) );
+		break;
+
+	case cpp_redis::reply::type::array:
+		BuildTable( LUA, reply.as_array( ) );
+		break;
+
+	case cpp_redis::reply::type::null:
+		LUA->PushBool( false );
+		break;
 	}
 }
 
@@ -283,26 +308,7 @@ LUA_FUNCTION_STATIC( Poll )
 			LUA->ReferencePush( response.reference );
 			LUA->Push( 1 );
 
-			switch( response.reply.get_type( ) )
-			{
-			case cpp_redis::reply::type::error:
-			case cpp_redis::reply::type::bulk_string:
-			case cpp_redis::reply::type::simple_string:
-				LUA->PushString( response.reply.as_string( ).c_str( ) );
-				break;
-
-			case cpp_redis::reply::type::integer:
-				LUA->PushNumber( static_cast<double>( response.reply.as_integer( ) ) );
-				break;
-
-			case cpp_redis::reply::type::array:
-				BuildTable( LUA, response.reply.as_array( ) );
-				break;
-
-			case cpp_redis::reply::type::null:
-				LUA->PushNil( );
-				break;
-			}
+			BuildReply(LUA, response.reply);
 
 			if( LUA->PCall( 2, 0, -4 ) != 0 )
 			{
@@ -492,12 +498,22 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 	LUA->SetField( -2, "Commit" );
 
 	LUA->Pop( 1 );
+
+	errormetatype = LUA->CreateMetaTable( errormetaname );
+
+	LUA->PushCFunction( errortostring );
+	LUA->SetField( -2, "__tostring" );
+
+	LUA->Pop( 1 );
 }
 
 void Deinitialize( GarrysMod::Lua::ILuaBase *LUA )
 {
 	LUA->PushNil( );
 	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, metaname );
+
+	LUA->PushNil( );
+	LUA->SetField( GarrysMod::Lua::INDEX_REGISTRY, errormetaname );
 }
 
 }

@@ -8,13 +8,16 @@
 #include "redis_subscriber.hpp"
 #include "main.hpp"
 
+using namespace GarrysMod::Lua;
+
 namespace redis_subscriber
 {
 
 enum class Action
 {
 	Disconnection,
-	Message
+	Message,
+	AuthFail
 };
 
 struct Response
@@ -210,6 +213,36 @@ LUA_FUNCTION_STATIC( Disconnect )
 	return 0;
 }
 
+
+
+LUA_FUNCTION_STATIC( Auth )
+{
+	Container *container = nullptr;
+	cpp_redis::subscriber *subscriber = Get( LUA, 1, &container );
+	std::string password = LUA->CheckString( 2 );
+
+	try
+	{
+		subscriber->auth( password, [container]( cpp_redis::reply &reply )
+		{
+			if (!reply.ok()) {
+				container->EnqueueResponse( { Action::AuthFail, "", "" } );
+			}
+		} );
+	}
+	catch( const cpp_redis::redis_error &e )
+	{
+		LUA->PushNil( );
+		LUA->PushString( e.what( ) );
+		return 2;
+	}
+
+	LUA->PushBool( true );
+	return 1;
+}
+
+
+
 LUA_FUNCTION_STATIC( Poll )
 {
 	Container *container = nullptr;
@@ -224,6 +257,18 @@ LUA_FUNCTION_STATIC( Poll )
 	{		
 		switch( response.type )
 		{
+		case Action::AuthFail:
+			{
+				const char* err = LUA->GetString(-1);
+				LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
+				LUA->GetField(-1, "ErrorNoHalt");
+				LUA->PushString("\n\n[redis subscriber auth failed] \n\n\n");
+				LUA->Call(1, 0);
+				LUA->Pop(2);
+			}
+
+			break;
+			
 		case Action::Disconnection:
 			if( !redis::GetMetaField( LUA, 1, "OnDisconnected" ) )
 				break;
@@ -412,6 +457,9 @@ void Initialize( GarrysMod::Lua::ILuaBase *LUA )
 
 	LUA->PushCFunction( Disconnect );
 	LUA->SetField( -2, "Disconnect" );
+
+	LUA->PushCFunction( Auth );
+	LUA->SetField( -2, "Auth" );
 
 	LUA->PushCFunction( Poll );
 	LUA->SetField( -2, "Poll" );

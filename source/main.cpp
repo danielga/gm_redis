@@ -68,6 +68,9 @@ GMOD_MODULE_OPEN( )
 	LUA->PushCFunction( redis_subscriber::Create );
 	LUA->SetField( -2, "CreateSubscriber" );
 
+	LUA->PushCFunction( redis_client::IsError );
+	LUA->SetField( -2, "IsError" );
+
 	LUA->SetField( GarrysMod::Lua::INDEX_GLOBAL, redis::table_name );
 
 	return 0;
