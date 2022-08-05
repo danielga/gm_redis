@@ -16,5 +16,5 @@ namespace redis_client
 void Initialize( GarrysMod::Lua::ILuaBase *LUA );
 void Deinitialize( GarrysMod::Lua::ILuaBase *LUAe );
 LUA_FUNCTION_DECLARE( Create );
-
+LUA_FUNCTION_DECLARE( IsError );
 }
